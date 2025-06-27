@@ -1,0 +1,23 @@
+import pyttsx3
+
+# Inicializar o mecanismo de voz
+engine = pyttsx3.init()
+
+# Definir a voz Maria (Português - Brasil)
+engine.setProperty(
+    'voice', 
+    'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Speech\\Voices\\Tokens\\TTS_MS_PT-BR_MARIA_11.0'
+)
+
+# Ajustar velocidade da fala (padrão é 200)
+engine.setProperty('rate', 200)  # Mais lento, dá efeito "robótico"
+
+# Ajustar volume (máximo é 1.0)
+engine.setProperty('volume', 2.0)
+
+# Texto a ser falado
+mensagem = "Olá. Eu sou Vision, mas pode me chamar de Vis!."
+
+# Falar
+engine.say(mensagem)
+engine.runAndWait()
