@@ -1,0 +1,180 @@
+import speech_recognition as sr 
+import pyttsx3
+import datetime
+import wikipedia
+import pywhatkit
+import webbrowser
+import time
+import os
+import subprocess
+import requests
+import serial
+
+# Configurar Arduino - ajuste a porta conforme seu sistema
+arduino = serial.Serial('COM3', 9600, timeout=1)
+time.sleep(2)  # espera Arduino iniciar
+
+audio = sr.Recognizer()
+maquina = pyttsx3.init()
+
+# Configurar voz em português
+voices = maquina.getProperty('voices')
+for voice in voices:
+    if ('pt' in voice.id.lower()) or ('portuguese' in voice.name.lower()):
+        maquina.setProperty('voice', voice.id)
+        break
+
+def falar(texto):
+    maquina.say(texto)
+    maquina.runAndWait()
+
+def executa_comando(tentativas=3):
+    for _ in range(tentativas):
+        try:
+            with sr.Microphone() as source:
+                print('Ouvindo...')
+                voz = audio.listen(source, timeout=5)
+                comando = audio.recognize_google(voz, language='pt-BR').lower()
+                print(f'Comando capturado: {comando}')
+                if 'vis' in comando:
+                    comando = comando.replace('vis', '').strip()
+                return comando
+        except Exception as e:
+            print(f'Erro ao capturar comando: {e}')
+            falar('Não entendi, pode repetir?')
+            time.sleep(1)
+    return ''
+
+def enviar_comando_arduino(comando):
+    if arduino.isOpen():
+        arduino.write((comando + '\n').encode())
+        resposta = arduino.readline().decode().strip()
+        print(f"Arduino respondeu: {resposta}")
+    else:
+        print("Erro: Porta serial não está aberta.")
+
+# Dicionário de contatos com nomes e números em formato internacional
+contatos = {
+    'mona': '+5519982133245',
+    'amor': '+5519982579749',
+    'cadu': '+55+55 19991783904',
+    'mãe': '+5511987654321',
+}
+
+def enviar_whatsapp(numero, mensagem):
+    try:
+        pywhatkit.sendwhatmsg_instantly(numero, mensagem)
+        falar('Mensagem enviada pelo WhatsApp.')
+    except Exception as e:
+        print(e)
+        falar('Erro ao enviar a mensagem.')
+
+def processar_comando(comando):
+    if comando == '':
+        falar('Nenhum comando reconhecido.')
+        return False
+
+    if 'ligar computador' in comando:
+        falar('Ligando computador.')
+        enviar_comando_arduino('LIGAR_COMPUTADOR')
+
+    elif 'desligar computador' in comando:
+        falar('Desligando computador.')
+        enviar_comando_arduino('DESLIGAR_COMPUTADOR')
+
+    elif 'horas' in comando:
+        hora = datetime.datetime.now().strftime('%H:%M')
+        falar(f'Agora são {hora}')
+
+    elif 'procure por' in comando:
+        termo = comando.replace('procure por', '').strip()
+        if termo:
+            wikipedia.set_lang('pt')
+            try:
+                resultado = wikipedia.summary(termo, sentences=2)
+                print(resultado)
+                falar(resultado)
+            except:
+                falar('Não encontrei nada sobre isso.')
+        else:
+            falar('Diga o que deseja procurar na Wikipédia.')
+
+    elif 'pesquise por' in comando:
+        termo = comando.replace('pesquise por', '').strip()
+        if termo:
+            falar(f'Pesquisando por {termo} no Google')
+            webbrowser.open(f'https://www.google.com/search?q={termo}')
+        else:
+            falar('Diga o que deseja pesquisar no Google.')
+
+    elif 'toque' in comando:
+        musica = comando.replace('toque', '').strip()
+        if musica:
+            falar(f'Tocando {musica} no YouTube')
+            pywhatkit.playonyt(musica)
+        else:
+            falar('Diga o nome da música que deseja ouvir.')
+
+    elif 'zap' in comando or 'whatsapp' in comando:
+        try:
+            if 'dizendo' in comando and 'para' in comando:
+                partes = comando.split('dizendo')
+                nome_raw = partes[0].split('para')[-1].strip().lower()
+                mensagem = partes[1].strip()
+
+                if nome_raw in contatos:
+                    numero = contatos[nome_raw]
+                    enviar_whatsapp(numero, mensagem)
+                else:
+                    falar(f'Contato {nome_raw} não encontrado na agenda.')
+            else:
+                falar('Diga: mande um zap para [nome] dizendo [mensagem].')
+        except Exception as e:
+            print(e)
+            falar('Não entendi o contato ou a mensagem.')
+
+    elif 'piada' in comando:
+        piadas = [
+            'Por que o computador foi ao médico? Porque estava com vírus!',
+            'O que o zero disse pro oito? Belo cinto!',
+            'O que um robô falou pro outro? Você tem um parafuso solto!',
+        ]
+        import random
+        falar(random.choice(piadas))
+
+    elif 'timer' in comando:
+        import re
+        match = re.search(r'\d+', comando)
+        if match:
+            minutos = int(match.group())
+            falar(f'Timer de {minutos} minutos iniciado.')
+            time.sleep(minutos * 60)
+            falar('Tempo encerrado!')
+        else:
+            falar('Diga por quantos minutos deseja iniciar o timer.')
+
+    elif 'lembrete' in comando:
+        lembrete = comando.replace('lembrete', '').strip()
+        if lembrete:
+            with open('lembretes.txt', 'a', encoding='utf-8') as f:
+                f.write(f'{datetime.datetime.now()}: {lembrete}\n')
+            falar('Lembrete salvo.')
+        else:
+            falar('Diga o que deseja lembrar.')
+
+    elif 'clima' in comando:
+        falar('Esta função precisa de uma chave de API do OpenWeatherMap.')
+
+    else:
+        falar('Desculpe, não reconheci o comando.')
+        print(f'Comando não reconhecido: {comando}')
+    return True
+
+def main():
+    while True:
+        comando = executa_comando()
+        if not processar_comando(comando):
+            break
+
+if __name__ == '__main__':
+    main()
