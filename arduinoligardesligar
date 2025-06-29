@@ -1,0 +1,33 @@
+const int botaoPowerPin = 7;
+
+void setup() {
+  pinMode(botaoPowerPin, OUTPUT);
+  digitalWrite(botaoPowerPin, LOW);  // Inicialmente desligado
+  Serial.begin(9600);
+  Serial.println("Arduino pronto");
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    String comando = Serial.readStringUntil('\n');
+    comando.trim();
+
+    if (comando == "LIGAR_COMPUTADOR") {
+      Serial.println("Ligando computador...");
+      digitalWrite(botaoPowerPin, HIGH);  // Pressiona o botão power
+      delay(1000);                        // Mantém pressionado por 1 segundo
+      digitalWrite(botaoPowerPin, LOW);   // Solta o botão
+      Serial.println("Computador ligado");
+    }
+    else if (comando == "DESLIGAR_COMPUTADOR") {
+      Serial.println("Desligando computador...");
+      digitalWrite(botaoPowerPin, HIGH);  // Pressiona o botão power
+      delay(5000);                        // Mantém pressionado por 5 segundos para forçar desligamento
+      digitalWrite(botaoPowerPin, LOW);   // Solta o botão
+      Serial.println("Computador desligado");
+    }
+    else {
+      Serial.println("Comando desconhecido");
+    }
+  }
+}
